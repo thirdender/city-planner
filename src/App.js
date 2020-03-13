@@ -58,31 +58,21 @@ function App() {
             row.map((cell, x) => {
               let src;
               let alt;
-              let title;
               let style;
               switch (cell) {
-                case 1:
+                case 1: {
                   alt = 'House';
                   src = '/house.png';
                   break;
-                case 2:
+                }
+                case 2: {
                   alt = 'Tree';
                   src = '/tree.png';
                   break;
-                default:
+                }
+                default: {
                   alt = 'Road';
                   // Count roads around this road
-                  let around = 0;
-                  for (let i = Math.max(0, y - 1), yMax = Math.min(height, y + 2); i < yMax; i++) {
-                    for (let j = Math.max(0, x - 1), xMax = Math.min(width, x + 2); j < xMax; j++) {
-                      if (i === y && j === x) {
-                        continue;
-                      }
-                      if (grid[i][j] === 0) {
-                        around += 1;
-                      }
-                    }
-                  }
                   const roadIsNorth = y > 0 && grid[y - 1][x] === 0;
                   const roadIsEast = x > 0 && grid[y][x - 1] === 0;
                   const roadIsSouth = y + 1 < height && grid[y + 1][x] === 0;
@@ -91,7 +81,6 @@ function App() {
                     + (roadIsWest ? 1 : 0)
                     + (roadIsSouth ? 1 : 0)
                     + (roadIsEast ? 1 : 0);
-                  title = orthogonallyAdjacentRoads;
                   if (orthogonallyAdjacentRoads === 4) {
                     // This is a four-way intersection
                     src = '/road-four-way.png';
@@ -134,15 +123,14 @@ function App() {
                     }
                   }
                   break;
+                }
               }
-              console.log(src);
               return src
                 ? <img
                   key={`${x},${y}/${width}x${height}`}
                   onClick={() => toggle(x, y)}
                   src={src}
                   alt={alt}
-                  title={title}
                   style={style}
                 />
                 : <span />
