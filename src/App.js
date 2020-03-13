@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import InputNumber from './InputNumber';
 import styles from './App.module.scss';
 
@@ -57,10 +57,20 @@ function App() {
           { grid.map((row, y) =>
             row.map((cell, x) => {
               let src;
+              let alt;
               let title;
               let style;
               switch (cell) {
-                case 0:
+                case 1:
+                  alt = 'House';
+                  src = '/house.png';
+                  break;
+                case 2:
+                  alt = 'Tree';
+                  src = '/tree.png';
+                  break;
+                default:
+                  alt = 'Road';
                   // Count roads around this road
                   let around = 0;
                   for (let i = Math.max(0, y - 1), yMax = Math.min(height, y + 2); i < yMax; i++) {
@@ -73,7 +83,6 @@ function App() {
                       }
                     }
                   }
-                  title = around;
                   const roadIsNorth = y > 0 && grid[y - 1][x] === 0;
                   const roadIsEast = x > 0 && grid[y][x - 1] === 0;
                   const roadIsSouth = y + 1 < height && grid[y + 1][x] === 0;
@@ -82,9 +91,27 @@ function App() {
                     + (roadIsWest ? 1 : 0)
                     + (roadIsSouth ? 1 : 0)
                     + (roadIsEast ? 1 : 0);
-                  if (around === 8) {
+                  title = orthogonallyAdjacentRoads;
+                  if (orthogonallyAdjacentRoads === 4) {
                     // This is a four-way intersection
                     src = '/road-four-way.png';
+                  } if (orthogonallyAdjacentRoads === 1) {
+                    // This is a dead-end
+                    src = '/road-dead-end.png';
+                    if (roadIsWest) {
+                      style = { transform: 'rotate(270deg)' };
+                    } else if (roadIsNorth) {
+                      style = { transform: 'rotate(180deg)' };
+                    } else if (roadIsEast) {
+                      style = { transform: 'rotate(90deg)' };
+                    }
+                  } else if (orthogonallyAdjacentRoads === 2 &&
+                    ((roadIsNorth && roadIsSouth) || (roadIsEast && roadIsWest))) {
+                    // This road is a straight line
+                    src = '/road-straight.png';
+                    if (roadIsNorth) {
+                      style = { transform: 'rotate(90deg)' };
+                    }
                   } else if (orthogonallyAdjacentRoads === 2) {
                     // This road is a curve
                     src = '/road-curve.png';
@@ -95,9 +122,6 @@ function App() {
                     } else if (roadIsEast) {
                       style = { transform: 'rotate(90deg)' };
                     }
-                  } else if (around === 7 && orthogonallyAdjacentRoads === 4) {
-                    // This road is diagonally adjacent to a single non-road tile
-                    src = '/road-four-way.png';
                   } else if (orthogonallyAdjacentRoads === 3) {
                     // This road is a t-intersection
                     src = '/road-t.png';
@@ -108,29 +132,20 @@ function App() {
                     } else if (!roadIsSouth) {
                       style = { transform: 'rotate(180deg)' };
                     }
-                  } else {
-                    // This road is a straight line
-                    src = '/road-straight.png';
-                    if (roadIsNorth) {
-                      style = { transform: 'rotate(90deg)' };
-                    }
                   }
-                  break;
-                case 1:
-                  src = '/house.png';
-                  break;
-                case 2:
-                  src = '/tree.png';
                   break;
               }
               console.log(src);
-              return <img
-                key={`${x},${y}/${width}x${height}`}
-                onClick={() => toggle(x, y)}
-                src={src}
-                title={title}
-                style={style}
-              />;
+              return src
+                ? <img
+                  key={`${x},${y}/${width}x${height}`}
+                  onClick={() => toggle(x, y)}
+                  src={src}
+                  alt={alt}
+                  title={title}
+                  style={style}
+                />
+                : <span />
             })
           ) }
         </div>
