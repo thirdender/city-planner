@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import InputNumber from './InputNumber';
 import styles from './App.module.scss';
+import pkg from '../package.json';
 
 function App() {
   const [width, setWidth] = useState(8);
@@ -129,7 +130,7 @@ function App() {
                 ? <img
                   key={`${x},${y}/${width}x${height}`}
                   onClick={() => toggle(x, y)}
-                  src={src}
+                  src={`${pkg.homepage}/${src}`}
                   alt={alt}
                   style={style}
                 />
