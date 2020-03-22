@@ -55,3 +55,29 @@
     margin-top: 20px
   }
 }
+
+.Tools {
+  text-align: center;
+  img {
+    width: 30px;
+    height: 30px;
+    vertical-align: top;
+    padding: 2px 4px 6px;
+    cursor: pointer;
+    opacity: .4;
+    border-bottom: 2px solid;
+    &:hover,
+    &.Selected {
+      opacity: 1;
+    }
+  }
+  &:hover img.Selected {
+    opacity: .8;
+    &:hover {
+      opacity: 1;
+    }
+  }
+  span {
+    display: block;
+  }
+}

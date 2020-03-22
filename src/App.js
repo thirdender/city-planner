@@ -12,6 +12,31 @@ function App() {
       .map((row) => Array(width).fill(0))
   );
 
+  // Store selected tool
+  const tools = [
+    {
+      key: 1,
+      name: 'House',
+      image: 'house.png',
+    },
+    {
+      key: 2,
+      name: 'Tree',
+      image: 'tree.png',
+    },
+    {
+      key: 3,
+      name: 'Store',
+      image: 'store.png',
+    },
+    {
+      key: 0,
+      name: 'Road',
+      image: 'road-straight.png',
+    },
+  ];
+  const [tool, setTool] = useState(1);
+
   // Add columns to the grid if needed
   if (width < grid[0].length) {
     setGrid(grid.map((row) => row.slice(0, width)));
@@ -37,8 +62,21 @@ function App() {
 
   const toggle = (x, y) => {
     const newGrid = [...grid];
-    newGrid[y][x] = (grid[y][x] + 1) % 3;
+    newGrid[y][x] = tool;
     setGrid(newGrid);
+  };
+
+  const adjacent = (x, y, type) => ({
+    north: y > 0 && grid[y - 1][x] === type,
+    east: x > 0 && grid[y][x - 1] === type,
+    south: y + 1 < height && grid[y + 1][x] === type,
+    west: x + 1 < width && grid[y][x + 1] === type,
+  });
+
+  const nearest = (x, y, type, path = []) => {
+    const [lastX, lastY] = path[path.length - 1];
+    const was = {};
+    Object.entries(adjacent(x, y, type))
   };
 
   // Calculate score
@@ -47,9 +85,13 @@ function App() {
     row.forEach((cell, x) => {
       if (cell === 1) {
         score += 10;
+        // TODO: Find route to nearest forest
+        console.log(adjacent(x, y, 0));
       }
     });
   });
+
+  // filter: hue-rotate(285deg)
 
   return (
     <div className={styles.App}>
@@ -63,31 +105,38 @@ function App() {
               switch (cell) {
                 case 1: {
                   alt = 'House';
-                  src = '/house.png';
+                  src = 'house.png';
                   break;
                 }
                 case 2: {
                   alt = 'Tree';
-                  src = '/tree.png';
+                  src = 'tree.png';
+                  break;
+                }
+                case 3: {
+                  alt = 'Store';
+                  src = 'store.png';
                   break;
                 }
                 default: {
                   alt = 'Road';
                   // Count roads around this road
-                  const roadIsNorth = y > 0 && grid[y - 1][x] === 0;
-                  const roadIsEast = x > 0 && grid[y][x - 1] === 0;
-                  const roadIsSouth = y + 1 < height && grid[y + 1][x] === 0;
-                  const roadIsWest = x + 1 < width && grid[y][x + 1] === 0;
+                  const {
+                    north: roadIsNorth,
+                    east: roadIsEast,
+                    south: roadIsSouth,
+                    west: roadIsWest,
+                  } = adjacent(x, y, 0);
                   const orthogonallyAdjacentRoads = (roadIsNorth ? 1 : 0)
                     + (roadIsWest ? 1 : 0)
                     + (roadIsSouth ? 1 : 0)
                     + (roadIsEast ? 1 : 0);
                   if (orthogonallyAdjacentRoads === 4) {
                     // This is a four-way intersection
-                    src = '/road-four-way.png';
+                    src = 'road-four-way.png';
                   } if (orthogonallyAdjacentRoads === 1) {
                     // This is a dead-end
-                    src = '/road-dead-end.png';
+                    src = 'road-dead-end.png';
                     if (roadIsWest) {
                       style = { transform: 'rotate(270deg)' };
                     } else if (roadIsNorth) {
@@ -98,13 +147,13 @@ function App() {
                   } else if (orthogonallyAdjacentRoads === 2 &&
                     ((roadIsNorth && roadIsSouth) || (roadIsEast && roadIsWest))) {
                     // This road is a straight line
-                    src = '/road-straight.png';
+                    src = 'road-straight.png';
                     if (roadIsNorth) {
                       style = { transform: 'rotate(90deg)' };
                     }
                   } else if (orthogonallyAdjacentRoads === 2) {
                     // This road is a curve
-                    src = '/road-curve.png';
+                    src = 'road-curve.png';
                     if (roadIsNorth && roadIsEast) {
                       style = { transform: 'rotate(180deg)' };
                     } else if (roadIsNorth) {
@@ -114,7 +163,7 @@ function App() {
                     }
                   } else if (orthogonallyAdjacentRoads === 3) {
                     // This road is a t-intersection
-                    src = '/road-t.png';
+                    src = 'road-t.png';
                     if (roadIsNorth && roadIsEast && roadIsSouth) {
                       style = { transform: 'rotate(90deg)' };
                     } else if (roadIsNorth && !roadIsEast) {
@@ -153,6 +202,22 @@ function App() {
         <h2>Height</h2>
         <div className={styles.Box}>
           <InputNumber defaultValue={height} onChange={setHeight} />
+        </div>
+
+        <h2>Tool</h2>
+        <div className={styles.Box}>
+          <div className={styles.Tools}>
+            { tools.map(({ key, name, image }) => (
+              <img
+                src={`${pkg.homepage}/${image}`}
+                alt={name}
+                onClick={() => setTool(key)}
+                key={key}
+                className={key === tool ? styles.Selected : undefined}
+              />
+            )) }
+            <span>{ tools.find((item) => item.key === tool).name }</span>
+          </div>
         </div>
       </div>
     </div>
