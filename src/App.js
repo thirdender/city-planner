@@ -7,9 +7,13 @@ function App() {
   const [width, setWidth] = useState(8);
   const [height, setHeight] = useState(8);
   const [grid, setGrid] = useState(
-    Array(height)
-      .fill()
-      .map((row) => Array(width).fill(0))
+    (() => {
+      const g = Array(height)
+        .fill()
+        .map((row) => Array(width).fill(0))
+      g[2][2] = 1;
+      return g;
+    })()
   );
 
   // Store selected tool
@@ -35,7 +39,7 @@ function App() {
       image: 'road-straight.png',
     },
   ];
-  const [tool, setTool] = useState(1);
+  const [tool, setTool] = useState(2);
 
   // Add columns to the grid if needed
   if (width < grid[0].length) {
@@ -73,10 +77,70 @@ function App() {
     west: x + 1 < width && grid[y][x + 1] === type,
   });
 
-  const nearest = (x, y, type, path = []) => {
-    const [lastX, lastY] = path[path.length - 1];
-    const was = {};
-    Object.entries(adjacent(x, y, type))
+  // Vectors to adjacent cells
+  const dx = [0, 0, +1, -1];
+  const dy = [-1, +1, 0, 0];
+  const visited = Array(height)
+    .fill()
+    .map((row) => Array(width).fill(false));
+  // Find the shorted path from x, y to a cell of type `target`
+  const walk = (sx, sy, target) => {
+    // Track visited locations
+    const xq = [];
+    const yq = [];
+    // Mark initial position as visited
+    xq.push(sx);
+    yq.push(sy);
+    visited[sy][sx] = true;
+    // Track number of steps taken
+    let steps = 0;
+    let reachedEnd = false;
+    let nodesLeftInLayer = 1;
+    let nodesInNextLayer = 0;
+
+    let x, y;
+
+    // Function to explore neighboring cells
+    const exploreNeighbors = () => {
+      for (let i = 0; i < 4; i++) {
+        // Adjacent coordinates
+        const xx = x + dx[i];
+        const yy = y + dy[i];
+        // Continue if adjacent coordinates are out of bounds
+        if (xx === -1 || yy === -1) continue;
+        if (xx === width || yy === height) continue;
+        // Skip visited locations
+        if (visited[yy][xx]) continue;
+        // Only add roads or target cells to the queue
+        const cell = grid[yy][xx];
+        if (cell === 0 || (steps > 0 && cell === target)) {
+          xq.push(xx);
+          yq.push(yy);
+          visited[yy][xx] = true;
+          nodesInNextLayer += 1;
+        }
+      }
+    }
+
+    while (xq.length) {
+      x = xq.shift();
+      y = yq.shift();
+      if (grid[y][x] === target) {
+        reachedEnd = true;
+        break;
+      }
+      exploreNeighbors();
+      nodesLeftInLayer -= 1;
+      if (nodesLeftInLayer === 0) {
+        nodesLeftInLayer = nodesInNextLayer;
+        nodesInNextLayer = 0;
+        steps += 1;
+      }
+    }
+
+    if (reachedEnd) {
+      return steps;
+    }
   };
 
   // Calculate score
@@ -84,9 +148,11 @@ function App() {
   grid.forEach((row, y) => {
     row.forEach((cell, x) => {
       if (cell === 1) {
-        score += 10;
-        // TODO: Find route to nearest forest
-        console.log(adjacent(x, y, 0));
+        // Find route to nearest forest
+        const distanceToForest = walk(x, y, 2);
+        if (distanceToForest && distanceToForest > 1) {
+          score += 10 - (distanceToForest - 1);
+        }
       }
     });
   });
@@ -181,7 +247,7 @@ function App() {
                   onClick={() => toggle(x, y)}
                   src={`${pkg.homepage}/${src}`}
                   alt={alt}
-                  style={style}
+                  style={{ ...style, filter: visited[y][x] ? 'hue-rotate(285deg)' : '' }}
                 />
                 : <span />
             })
