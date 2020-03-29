@@ -221,7 +221,6 @@ function App() {
             score -= houseToForest;
             stepsToForests += houseToForest;
             stepsFromHouse[y][x].stepsToForests = houseToForest;
-            console.log(houseToForest);
           } else {
             stepsToForests += 5;
             score -= 5;
@@ -371,7 +370,7 @@ function App() {
                   title={title}
                   style={{
                     ...style,
-                    filter: footsteps[y][x]
+                    filter: footsteps[y] && footsteps[y][x]
                       ? `hue-rotate(${decimalSig(footsteps[y][x] / 4) * -75}deg)`
                       : ''
                   }}
