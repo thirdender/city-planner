@@ -3,14 +3,23 @@ import InputNumber from './InputNumber';
 import styles from './App.module.scss';
 import pkg from '../package.json';
 
+// Sigmoid function, constrains a number between 0 and 1
+const sig = (x) => 1 / (1 + Math.E ** -x);
+// Decimal to sigmoid, constrains values of 0 and Infinity to between 0 and 1
+const decimalSig = (x) => (sig(x * Math.E) - 0.5) * 2;
+
 function App() {
   const [width, setWidth] = useState(8);
   const [height, setHeight] = useState(8);
+
+  const createEmptyGrid = ({ fill }) =>
+    Array(height)
+      .fill()
+      .map(() => Array(width).fill(fill))
+
   const [grid, setGrid] = useState(
     (() => {
-      const g = Array(height)
-        .fill()
-        .map((row) => Array(width).fill(0))
+      const g = createEmptyGrid({ fill: 0 });
       g[2][2] = 1;
       return g;
     })()
@@ -80,12 +89,10 @@ function App() {
   // Vectors to adjacent cells
   const dx = [0, 0, +1, -1];
   const dy = [-1, +1, 0, 0];
-  const visited = Array(height)
-    .fill()
-    .map((row) => Array(width).fill(false));
   // Find the shorted path from x, y to a cell of type `target`
   const walk = (sx, sy, target) => {
     // Track visited locations
+    const visited = createEmptyGrid({ fill: false });
     const xq = [];
     const yq = [];
     // Mark initial position as visited
@@ -138,21 +145,35 @@ function App() {
       }
     }
 
-    if (reachedEnd) {
-      return steps;
+    // Return visited spaces and number of steps to the nearest cell of type 
+    // `target`. If a path cannot be found, `steps` will be false.
+    if (!reachedEnd) {
+      steps = false;
     }
+    return {
+      visited,
+      steps,
+    };
   };
 
   // Calculate score
   let score = 0;
+  const visitedHouseToForest = createEmptyGrid({ fill: 0 });
   grid.forEach((row, y) => {
     row.forEach((cell, x) => {
       if (cell === 1) {
         // Find route to nearest forest
-        const distanceToForest = walk(x, y, 2);
+        const { visited, steps: distanceToForest } = walk(x, y, 2);
         if (distanceToForest && distanceToForest > 1) {
           score += 10 - (distanceToForest - 1);
         }
+        visited.forEach((row, yy) => {
+          row.forEach((isVisited, xx) => {
+            if (isVisited) {
+              visitedHouseToForest[yy][xx] += 1;
+            }
+          })
+        });
       }
     });
   });
@@ -247,7 +268,12 @@ function App() {
                   onClick={() => toggle(x, y)}
                   src={`${pkg.homepage}/${src}`}
                   alt={alt}
-                  style={{ ...style, filter: visited[y][x] ? 'hue-rotate(285deg)' : '' }}
+                  style={{
+                    ...style,
+                    filter: visitedHouseToForest[y][x]
+                      ? `hue-rotate(${decimalSig(visitedHouseToForest[y][x] / 4) * -75}deg)`
+                      : ''
+                  }}
                 />
                 : <span />
             })
