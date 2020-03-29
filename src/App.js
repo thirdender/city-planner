@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import InputNumber from './InputNumber';
 import styles from './App.module.scss';
 import pkg from '../package.json';
@@ -7,6 +7,11 @@ import pkg from '../package.json';
 const sig = (x) => 1 / (1 + Math.E ** -x);
 // Decimal to sigmoid, constrains values of 0 and Infinity to between 0 and 1
 const decimalSig = (x) => (sig(x * Math.E) - 0.5) * 2;
+
+const HOUSE = 1;
+const TREE = 2;
+const STORE = 3;
+const ROAD = 4;
 
 function App() {
   const [width, setWidth] = useState(8);
@@ -19,7 +24,7 @@ function App() {
 
   const [grid, setGrid] = useState(
     (() => {
-      const g = createEmptyGrid({ fill: 0 });
+      const g = createEmptyGrid({ fill: ROAD });
       g[2][2] = 1;
       return g;
     })()
@@ -28,27 +33,39 @@ function App() {
   // Store selected tool
   const tools = [
     {
-      key: 1,
+      key: HOUSE,
       name: 'House',
       image: 'house.png',
     },
     {
-      key: 2,
+      key: TREE,
       name: 'Tree',
       image: 'tree.png',
     },
     {
-      key: 3,
+      key: STORE,
       name: 'Store',
       image: 'store.png',
     },
     {
-      key: 0,
+      key: ROAD,
       name: 'Road',
       image: 'road-straight.png',
     },
   ];
-  const [tool, setTool] = useState(2);
+  const [tool, setTool] = useState(TREE);
+  useEffect(() => {
+    const handler = (event) => {
+      const key = Number(event.key);
+      if (key < 5) {
+        setTool(key);
+      }
+    };
+    document.body.addEventListener('keypress', handler);
+    return () => {
+      document.body.removeEventListener('keypress', handler);
+    };
+  }, []);
 
   // Add columns to the grid if needed
   if (width < grid[0].length) {
@@ -56,7 +73,7 @@ function App() {
   } else if (width > grid[0].length) {
     grid.map((row) => {
       while (row.length < width) {
-        row.push(0);
+        row.push(ROAD);
       }
       return row;
     });
@@ -68,7 +85,7 @@ function App() {
     setGrid(grid.slice(0, height));
   } else if (height > grid.length) {
     while (grid.length < height) {
-      grid.push(Array(grid[0].length).fill(0));
+      grid.push(Array(grid[0].length).fill(ROAD));
     }
     setGrid(grid);
   }
@@ -120,7 +137,7 @@ function App() {
         if (visited[yy][xx]) continue;
         // Only add roads or target cells to the queue
         const cell = grid[yy][xx];
-        if (cell === 0 || (steps > 0 && cell === target)) {
+        if (cell === ROAD || (steps > 0 && cell === target)) {
           xq.push(xx);
           yq.push(yy);
           visited[yy][xx] = true;
@@ -156,29 +173,110 @@ function App() {
     };
   };
 
-  // Calculate score
+  // Track score for forests
+  const findAdjacentForests = (x, y) => {
+    for (let i = 0; i < 4; i++) {
+      // Adjacent coordinates
+      const xx = x + dx[i];
+      const yy = y + dy[i];
+      // Continue if adjacent coordinates are out of bounds
+      if (xx === -1 || yy === -1) continue;
+      if (xx === width || yy === height) continue;
+      // Skip visited locations
+      if (visitedForests[yy][xx]) continue;
+      // Continue checking adjacent cells if this is a forest
+      if (grid[yy][xx] === TREE) {
+        visitedForests[yy][xx] = true;
+        numberTrees += 1;
+        findAdjacentForests(xx, yy);
+      }
+    }
+  };
+  const visitedForests = createEmptyGrid({ fill: false });
+  let numberTrees = 0;
+  let numberForests = 0;
+
+  // Calculate scores
+  const footsteps = createEmptyGrid({ fill: 0 });
+  const stepsFromHouse = createEmptyGrid({});
   let score = 0;
-  const visitedHouseToForest = createEmptyGrid({ fill: 0 });
+  let houses = 0;
+  let stores = 0;
+  let stepsToForests = 0;
+  let stepsToStores = 0;
   grid.forEach((row, y) => {
     row.forEach((cell, x) => {
-      if (cell === 1) {
-        // Find route to nearest forest
-        const { visited, steps: distanceToForest } = walk(x, y, 2);
-        if (distanceToForest && distanceToForest > 1) {
-          score += 10 - (distanceToForest - 1);
-        }
-        visited.forEach((row, yy) => {
-          row.forEach((isVisited, xx) => {
-            if (isVisited) {
-              visitedHouseToForest[yy][xx] += 1;
+      switch (cell) {
+        case HOUSE: {
+          houses += 1;
+          score += 10;
+          stepsFromHouse[y][x] = {
+            stepsToForests: 5,
+            stepsToStores: 5,
+          };
+          // Find route to nearest forest
+          const { visited: visitedToForests, steps: distanceToForest } = walk(x, y, TREE);
+          if (distanceToForest && distanceToForest > 1) {
+            const houseToForest = Math.min(distanceToForest - 1, 5);
+            score -= houseToForest;
+            stepsToForests += houseToForest;
+            stepsFromHouse[y][x].stepsToForests = houseToForest;
+            console.log(houseToForest);
+          } else {
+            stepsToForests += 5;
+            score -= 5;
+          }
+          // Find route to nearest store
+          const { visited: visitedToStores, steps: distanceToStore } = walk(x, y, STORE);
+          if (distanceToStore && distanceToStore > 1) {
+            const houseToStore = Math.min(distanceToStore - 1, 5);
+            score -= houseToStore;
+            stepsToStores += houseToStore;
+            stepsFromHouse[y][x].stepsToStores = houseToStore;
+          } else {
+            stepsToStores += 5;
+            score -= 5;
+          }
+          // Mark footsteps on the map
+          for (let xx = 0; xx < width; xx += 1) {
+            for (let yy = 0; yy < height; yy += 1) {
+              if (distanceToForest && visitedToForests[yy][xx]) {
+                footsteps[yy][xx] += 1;
+              }
+              if (distanceToStore && visitedToStores[yy][xx]) {
+                footsteps[yy][xx] += 1;
+              }
             }
-          })
-        });
+          }
+          break;
+        }
+        case TREE: {
+          // If this tree is not in a previously visited forest, explore forest
+          if (!visitedForests[y][x]) {
+            visitedForests[y][x] = true;
+            numberForests += 1;
+            numberTrees += 1;
+            findAdjacentForests(x, y);
+          }
+          break;
+        }
+        case STORE: {
+          // Track score for stores
+          score -= 5;
+          stores += 1;
+          break;
+        }
+        default: {
+          // THE GOGGLES DO NOTHING
+        }
       }
     });
   });
 
-  // filter: hue-rotate(285deg)
+  // Calculate total score for forests
+  if (numberTrees > 0) {
+    score += Math.floor(numberTrees / numberForests);
+  }
 
   return (
     <div className={styles.App}>
@@ -189,18 +287,20 @@ function App() {
               let src;
               let alt;
               let style;
+              let title;
               switch (cell) {
-                case 1: {
+                case HOUSE: {
                   alt = 'House';
                   src = 'house.png';
+                  title = `${stepsFromHouse[y][x].stepsToForests} steps to forest, ${stepsFromHouse[y][x].stepsToStores} steps to store`;
                   break;
                 }
-                case 2: {
+                case TREE: {
                   alt = 'Tree';
                   src = 'tree.png';
                   break;
                 }
-                case 3: {
+                case STORE: {
                   alt = 'Store';
                   src = 'store.png';
                   break;
@@ -213,7 +313,7 @@ function App() {
                     east: roadIsEast,
                     south: roadIsSouth,
                     west: roadIsWest,
-                  } = adjacent(x, y, 0);
+                  } = adjacent(x, y, ROAD);
                   const orthogonallyAdjacentRoads = (roadIsNorth ? 1 : 0)
                     + (roadIsWest ? 1 : 0)
                     + (roadIsSouth ? 1 : 0)
@@ -268,10 +368,11 @@ function App() {
                   onClick={() => toggle(x, y)}
                   src={`${pkg.homepage}/${src}`}
                   alt={alt}
+                  title={title}
                   style={{
                     ...style,
-                    filter: visitedHouseToForest[y][x]
-                      ? `hue-rotate(${decimalSig(visitedHouseToForest[y][x] / 4) * -75}deg)`
+                    filter: footsteps[y][x]
+                      ? `hue-rotate(${decimalSig(footsteps[y][x] / 4) * -75}deg)`
                       : ''
                   }}
                 />
@@ -283,17 +384,19 @@ function App() {
       <div className={styles.Sidebar}>
         <h2>Score</h2>
         <div className={styles.Box}>
-          {score}
-        </div>
-
-        <h2>Width</h2>
-        <div className={styles.Box}>
-          <InputNumber defaultValue={width} onChange={setWidth} />
-        </div>
-
-        <h2>Height</h2>
-        <div className={styles.Box}>
-          <InputNumber defaultValue={height} onChange={setHeight} />
+          <div title="10 points per house">Houses: { houses * 10 }</div>
+          <div
+            title={`${numberTrees} tree${numberTrees === 1 ? '' : 's'}, divided by ${numberForests} forest${numberForests === 1 ? '' : 's'}`}
+          >
+            Forests: { numberTrees ? Math.floor(numberTrees / numberForests) : 0 }
+          </div>
+          <div title="-5 points per store">Stores: { stores * -5 }</div>
+          <div title="-1 point for each step needed to travel from a house to forests and stores">
+            Travel:
+              <div> &nbsp; to forests: { stepsToForests }</div>
+              <div> &nbsp; to stores: { stepsToStores }</div>
+          </div>
+          <div style={{ marginTop: '2px', borderTop: '2px solid' }}>Total: { score }</div>
         </div>
 
         <h2>Tool</h2>
@@ -306,10 +409,21 @@ function App() {
                 onClick={() => setTool(key)}
                 key={key}
                 className={key === tool ? styles.Selected : undefined}
+                title={`Press ${key} to select`}
               />
             )) }
             <span>{ tools.find((item) => item.key === tool).name }</span>
           </div>
+        </div>
+
+        <h2>Width</h2>
+        <div className={styles.Box}>
+          <InputNumber defaultValue={width} onChange={setWidth} />
+        </div>
+
+        <h2>Height</h2>
+        <div className={styles.Box}>
+          <InputNumber defaultValue={height} onChange={setHeight} />
         </div>
       </div>
     </div>
